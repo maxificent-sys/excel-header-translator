@@ -104,21 +104,26 @@ async def translate(file: UploadFile = File(...)):
     wb = openpyxl.load_workbook(io.BytesIO(contents))
     ws = wb.active
 
-    headers = []
-    for cell in ws[1]:
-        if cell.value and isinstance(cell.value, str):
-            headers.append(cell.value)
+    # Collect unique text values from header rows (row 1 and row 2)
+    header_rows = [1, 2]
+    unique_texts = {}
+    for row_num in header_rows:
+        for cell in ws[row_num]:
+            if cell.value and isinstance(cell.value, str):
+                unique_texts[cell.value] = None
 
-    if not headers:
-        raise HTTPException(400, "No text headers found in row 1")
+    if not unique_texts:
+        raise HTTPException(400, "No text headers found in rows 1-2")
 
     translator = GoogleTranslator(source="zh-CN", target="en")
-    translated = translator.translate_batch(headers)
-    translation_map = dict(zip(headers, translated))
+    texts = list(unique_texts.keys())
+    translated = translator.translate_batch(texts)
+    translation_map = dict(zip(texts, translated))
 
-    for cell in ws[1]:
-        if cell.value in translation_map:
-            cell.value = translation_map[cell.value]
+    for row_num in header_rows:
+        for cell in ws[row_num]:
+            if cell.value in translation_map:
+                cell.value = translation_map[cell.value]
 
     output = io.BytesIO()
     wb.save(output)
